@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // Redis .redis cache
@@ -26,21 +26,21 @@ type RedisOpts struct {
 // NewRedis 实例化
 func NewRedis(ctx context.Context, opts *RedisOpts) *Redis {
 	conn := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:        []string{opts.Host},
-		DB:           opts.Database,
-		Password:     opts.Password,
-		IdleTimeout:  time.Second * time.Duration(opts.IdleTimeout),
-		MinIdleConns: opts.MaxIdle,
+		Addrs:           []string{opts.Host},
+		DB:              opts.Database,
+		Password:        opts.Password,
+		ConnMaxIdleTime: time.Second * time.Duration(opts.IdleTimeout),
+		MinIdleConns:    opts.MaxIdle,
 	})
 	return &Redis{ctx: ctx, conn: conn}
 }
 
-// SetConn 设置conn
+// SetConn 设置 conn
 func (r *Redis) SetConn(conn redis.UniversalClient) {
 	r.conn = conn
 }
 
-// SetRedisCtx 设置redis ctx 参数
+// SetRedisCtx 设置 redis ctx 参数
 func (r *Redis) SetRedisCtx(ctx context.Context) {
 	r.ctx = ctx
 }
@@ -52,11 +52,11 @@ func (r *Redis) Get(key string) interface{} {
 
 // GetContext 获取一个值
 func (r *Redis) GetContext(ctx context.Context, key string) interface{} {
-	result, err := r.conn.Do(ctx, "GET", key).Result()
-	if err != nil {
-		return nil
+	result := r.conn.Get(ctx, key)
+	if result.Err() != nil {
+		return ""
 	}
-	return result
+	return result.Val()
 }
 
 // Set 设置一个值
@@ -66,15 +66,15 @@ func (r *Redis) Set(key string, val interface{}, timeout time.Duration) error {
 
 // SetContext 设置一个值
 func (r *Redis) SetContext(ctx context.Context, key string, val interface{}, timeout time.Duration) error {
-	return r.conn.SetEX(ctx, key, val, timeout).Err()
+	return r.conn.SetEx(ctx, key, val, timeout).Err()
 }
 
-// IsExist 判断key是否存在
+// IsExist 判断 key 是否存在
 func (r *Redis) IsExist(key string) bool {
 	return r.IsExistContext(r.ctx, key)
 }
 
-// IsExistContext 判断key是否存在
+// IsExistContext 判断 key 是否存在
 func (r *Redis) IsExistContext(ctx context.Context, key string) bool {
 	result, _ := r.conn.Exists(ctx, key).Result()
 
